@@ -1,3 +1,7 @@
+'''
+@author: Katharina Hovestadt
+'''
+
 import helpfunctions as hf
 import gdal, gdalconst
 import os
@@ -5,12 +9,27 @@ import osgeo.osr as osr
 import convex_hull
 
 
-
+DATATYPE = "image/tiff"
 
 def extractContentFromPath(filePath):
-    ''' method to extract geotiff content from a file by using its filepath
+    ''' method to extract geotiff content from a file by using its filepath \n
+    input "filepath": type string, path to file which shall be extracted \n
+    returns geotiff content of the filepath: type string
+    '''
+    gdal.UseExceptions()
+    #zip https://rasterio.readthedocs.io/en/latest/quickstart.html
+    #GDAL error handler
+    #from: https://pcjericks.github.io/py-gdalogr-cookbook/raster_layers.html#get-raster-metadata
+    gtiffContent = gdal.Open(filePath)
+    return gtiffContent
+
+
+
+
+def isValid(filePath):
+    '''Checks whether it is valid geotiff or not.
     input filepath: type string, path to file which shall be extracted
-    output gtiffContent: type string,  returns  geotiff content of filepath 
+    output true if file is valid, false if not
     '''
     gdal.UseExceptions()
     
@@ -26,9 +45,9 @@ def extractContentFromPath(filePath):
 
 
 def getBoundingBox(filePath):
-    ''' extracts bounding box from geotiff
-    input filepath: type string, file path to geotiff file
-    output bbox: type list, length = 4 , type = float, schema = [min(longs), min(lats), max(longs), max(lats)] 
+    ''' extracts bounding box from geotiff \n
+    input "filepath": type string, file path to geotiff file \n
+    returns bounding box of the file: type list, length = 4 , type = float, schema = [min(longs), min(lats), max(longs), max(lats)] 
     '''
     gtiffContent = extractContentFromPath(filePath)
     boundingBox = []
@@ -38,22 +57,22 @@ def getBoundingBox(filePath):
     maxx = minx + geoTransform[1] * gtiffContent.RasterXSize
     miny = maxy + geoTransform[5] * gtiffContent.RasterYSize
      
-    minx = format(float(minx), '.2f')
-    maxy = format(float(maxy), '.2f')
-    maxx = format(float(maxx), '.2f')
-    miny = format(float(miny), '.2f')
+    minx = float(minx)
+    maxy = float(maxy)
+    maxx = float(maxx)
+    miny = float(miny)
 
     boundingBox= [miny, minx, maxy, maxx]
     if not boundingBox:
         raise Exception("Bounding box could not be extracted")
-        return boundingBox
+    return boundingBox
 
 
 
 def getCRS(filePath):
-    ''' gets the coordinate reference systems from the geotiff file
-    input filepath: type string, file path to geotiff file
-    output crsCode: type int, EPSG number of taken crs
+    ''' gets the coordinate reference systems from the geotiff file \n
+    input "filepath": type string, file path to geotiff file \n
+    return epsg code of the used coordiante reference system: type int
     '''
 
     gtiffContent = extractContentFromPath(filePath)
@@ -68,31 +87,35 @@ def getCRS(filePath):
 
 
 def getVectorRepresentation(filePath):
-    ''' extracts coordinates from geotiff File (for vector representation)
-    input filepath: type string, file path to geotiff file
-    output coordinates: type list, list of lists with length = 2, contains extracted coordinates of content from geotiff file
+    ''' extracts coordinates from geotiff File (for vector representation) \n
+    input "filepath": type string, file path to geotiff file \n
+    returns extracted coordinates of content: type list, list of lists with length = 2
+    See bbox (doubled for threading (getBoundingBox is locked))
     '''
     gtiffContent = extractContentFromPath(filePath)
     vectorRepresentation = []
     geoTransform = gtiffContent.GetGeoTransform()
     minx = geoTransform[0]
-    maxy = geoTransform[3]
+    maxy = geoTransform[3]        
     maxx = minx + geoTransform[1] * gtiffContent.RasterXSize
     miny = maxy + geoTransform[5] * gtiffContent.RasterYSize
-    vectorRepresentation = [miny, minx, maxy, maxx]
+     
+    minx = float(minx)
+    maxy = float(maxy)
+    maxx = float(maxx)
+    miny = float(miny)
 
-    #raise Exception("Vector representation could not be extracted" + str(e))
+    vectorRepresentation= [[minx, miny], [maxx, maxy]]
     if not vectorRepresentation:
-        raise Exception("No coordinates found in file. Vector Representation could not be extracted.")
-    vectorRepresentation = convex_hull.graham_scan(vectorRepresentation)
+        raise Exception("Bounding box could not be extracted")
     return vectorRepresentation
 
 
 
 def getTemporalExtent(filePath):
-    ''' extracts temporal extent of the geotiff
-    input filepath: type string, file path to geotiff file
-    output timeExtent: type list, length = 2, both entries have the type dateTime, temporalExtent[0] <= temporalExtent[1]
+    ''' extracts temporal extent of the geotiff \n
+    input "filepath": type string, file path to geotiff file \n
+    returns the temporal extent of the file: type list, length = 2, both entries have the type dateTime, temporalExtent[0] <= temporalExtent[1]
     '''
 
     gtiffContent = extractContentFromPath(filePath)
